@@ -127,3 +127,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Files
+
+workspace*
+
+# Directories
+.vscode
+
+iseeker
+iseeker/*
