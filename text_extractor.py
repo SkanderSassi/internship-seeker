@@ -3,13 +3,11 @@ import shutil
 import os
 from nltk.tokenize import word_tokenize
 import pytesseract as tess
-import sys
 import logging
 from PIL import Image
 from pdf2image import convert_from_path
 from nltk.corpus import stopwords
 from textblob import TextBlob
-from collections import defaultdict
 # Download steps required for nltk
 
 
@@ -37,10 +35,7 @@ class Extractor:
     def __convert_page_to_image(
         self, page, directory_path: str, file_basename: str, image_id: int
     ) -> None:
-        
         page.save(f"{directory_path}/{file_basename}_page_{image_id}", "JPEG")
-
-    # @classmethod
     
     def __get_language_name(self, text : str) -> str:
         blob = TextBlob(text)
@@ -63,13 +58,13 @@ class Extractor:
         )
         preprocessed_text = re.sub(r'\W+|\d+',' ',preprocessed_text)
         preprocessed_text = re.sub(r'\s{2,}', ' ',preprocessed_text)
+        
         return preprocessed_text
 
     def __convert_pdf_to_images(self, file_basename: str) -> str:
         logging.info(f"Converting file : {file_basename}.pdf")
         temporary_dir_path = f"{self.output_directory}/{file_basename}_temp"
         try:
-
             pages_list = convert_from_path(
                 f"{self.files_directory}/{file_basename}.pdf"
             )
@@ -84,11 +79,13 @@ class Extractor:
 
         return temporary_dir_path
 
-    # def __create_temporary_directory(self, )
 
     def __clean_up(self, dir_path) -> None:
         logging.info(f"Cleaning files")
-        shutil.rmtree(dir_path)
+        try:
+            shutil.rmtree(dir_path)
+        except FileNotFoundError:
+            print(f"Directory not found at {dir_path}")
 
     def __dump_text(self, text: str, file_path: str, mode: str) -> None:
         with open(file_path, mode) as file:
@@ -96,31 +93,37 @@ class Extractor:
             file.write(text)
 
     def apply_ocr(self) -> None:
-        for file_name in self.files_list:
-            file_basename = re.sub("\.pdf", "", file_name)
-            output_path = os.path.join(self.output_directory, file_basename + ".txt")
-            logging.info(f"Handling {file_name}")
-            temporary_dir_path = self.__convert_pdf_to_images(file_basename)
-
-            extracted_text = []
-            logging.info("Applying OCR")
-            for image_file_name in os.listdir(temporary_dir_path):
-                extracted_text.append(
-                    self.__extract_text_from_image(
-                        os.path.join(temporary_dir_path, image_file_name),
-                    )
-                )
-                
-            sample_text = extracted_text[0]
-            lang = self.__get_language_name(sample_text) #Detect language based on a sample
-            extracted_text = ' '.join(extracted_text)
-            lang = LANG_MAP[lang][1]  #map detected abbreviation to its corresponding string
-
-            if self.preprocess:
-                logging.info("Preprocessing text")
-                extracted_text = self.__preprocess_text(extracted_text, lang)     
-                 
-            self.__dump_text(extracted_text, output_path, "w+")
-            self.__clean_up(temporary_dir_path)
+        if (not os.path.isdir(self.output_directory)):
+            os.mkdir(self.output_directory)
             
+        if len(self.files_list) > 0:
+            for file_name in self.files_list:
+                try:
+                    file_basename = re.sub("\.pdf", "", file_name)
+                    output_path = os.path.join(self.output_directory, file_basename + ".txt")
+                    logging.info(f"Handling {file_name}")
+                    temporary_dir_path = self.__convert_pdf_to_images(file_basename)
+
+                    extracted_text = []
+                    logging.info("Applying OCR")
+                    for image_file_name in os.listdir(temporary_dir_path):
+                        extracted_text.append(
+                            self.__extract_text_from_image(
+                                os.path.join(temporary_dir_path, image_file_name),
+                            )
+                        )
+                        
+                    sample_text = extracted_text[0]
+                    lang = self.__get_language_name(sample_text) #Detect language based on a sample
+                    extracted_text = ' '.join(extracted_text)
+                    lang = LANG_MAP[lang][1]  #map detected abbreviation to its corresponding string
+
+                    if self.preprocess:
+                        logging.info("Preprocessing text")
+                        extracted_text = self.__preprocess_text(extracted_text, lang)     
+                    self.__dump_text(extracted_text, output_path, "w+")
+                finally:
+                    self.__clean_up(temporary_dir_path)
+        else:
+            logging.info('No files to work on')    
             
