@@ -20,7 +20,7 @@ OPTION_CARRIERE_LINK = "https://www.optioncarriere.tn/recherche/emplois?s=&l=Tun
 
 chrome_options = Options()
 # chrome_options.add_argument('load-extension='+)
-# chrome_options.add_argument("--headless")
+chrome_options.add_argument("--headless")
 chrome_options.add_experimental_option(
     "prefs",
     {
